@@ -12,7 +12,8 @@ class Config:
     # Flask
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-change-in-production")
     DATABASE_URL = "sqlite:///gmail_aggregator.db"
-    SESSION_TYPE = "filesystem"
+    SESSION_TYPE = "null"
+    SESSION_PERMANENT = False
 
     # Google OAuth
     GOOGLE_CLIENT_SECRETS_FILE = "credentials.json"
