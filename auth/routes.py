@@ -68,18 +68,8 @@ def connect():
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
-            code_challenge_method="S256",
         )
-        response = make_response(redirect(auth_url))
-        response.set_cookie(
-            "oauth_code_verifier",
-            flow.code_verifier,
-            httponly=True,
-            secure=True,
-            samesite="Lax",
-            max_age=600,  # 10 minutes
-        )
-        return response
+        return redirect(auth_url)
     except ValueError as e:
         return render_template("error.html", message=str(e)), 500
     except Exception as e:
@@ -90,17 +80,15 @@ def connect():
 def oauth2callback():
     """Handle OAuth callback."""
     if "error" in request.args:
-        return f"Error: {request.args['error']}", 400
+        error_msg = request.args.get("error_description", request.args.get("error", "Unknown error"))
+        return render_template("error.html", message=f"Google OAuth Error: {error_msg}"), 400
 
     code = request.args.get("code")
     if not code:
-        return "No code provided", 400
-
-    # Get code_verifier from cookie (set during /connect)
-    code_verifier = request.cookies.get("oauth_code_verifier")
+        return render_template("error.html", message="No authorization code received"), 400
 
     flow = make_flow()
-    flow.fetch_token(authorization_response=request.url, code_verifier=code_verifier)
+    flow.fetch_token(authorization_response=request.url)
     credentials = flow.credentials
     
     email = None
