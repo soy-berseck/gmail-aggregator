@@ -37,7 +37,10 @@
 
 <div class="card shadow">
     <div class="email-header">
-        <h4>{{ email.subject }}</h4>
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <h4 class="mb-0">{{ email.subject }}</h4>
+            <span class="badge bg-info">{{ email.account.email }}</span>
+        </div>
 
         <div class="header-row">
             <span class="header-label">De:</span>
@@ -47,11 +50,6 @@
         <div class="header-row">
             <span class="header-label">Fecha:</span>
             <span>{{ email.date.strftime('%d de %B de %Y a las %H:%M') if email.date else 'N/A' }}</span>
-        </div>
-
-        <div class="header-row">
-            <span class="header-label">Cuenta:</span>
-            <span><em>{{ email.account.email }}</em></span>
         </div>
 
         <div class="header-row">
