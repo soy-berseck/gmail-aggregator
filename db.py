@@ -8,8 +8,16 @@ SessionLocal = sessionmaker(bind=engine)
 
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        # Ignore DB initialization errors (e.g., on read-only filesystems like Vercel)
+        print(f"⚠️ Warning: Could not initialize database: {e}")
+        pass
 
 
 def get_db() -> Session:
-    return SessionLocal()
+    try:
+        return SessionLocal()
+    except Exception:
+        return None
