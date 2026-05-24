@@ -1,3 +1,5 @@
+import os
+import json
 from flask import Blueprint, redirect, session, url_for, request, render_template
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
@@ -11,8 +13,33 @@ from datetime import datetime
 auth_bp = Blueprint("auth", __name__)
 
 
+def ensure_credentials_file():
+    """Create credentials.json from environment variables if it doesn't exist."""
+    if not os.path.exists(Config.GOOGLE_CLIENT_SECRETS_FILE):
+        client_id = os.environ.get("GOOGLE_CLIENT_ID")
+        client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+        
+        if not client_id or not client_secret:
+            raise ValueError("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set")
+        
+        credentials = {
+            "web": {
+                "client_id": client_id,
+                "project_id": "gmail-aggegator",
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_secret": client_secret,
+                "redirect_uris": [Config.OAUTH_REDIRECT_URI]
+            }
+        }
+        with open(Config.GOOGLE_CLIENT_SECRETS_FILE, "w") as f:
+            json.dump(credentials, f)
+
+
 def make_flow():
     """Create a new Google OAuth flow."""
+    ensure_credentials_file()
     flow = Flow.from_client_secrets_file(
         Config.GOOGLE_CLIENT_SECRETS_FILE,
         scopes=Config.SCOPES,
@@ -43,63 +70,76 @@ def connect():
 @auth_bp.route("/oauth2callback")
 def oauth2callback():
     """Handle OAuth callback."""
+    state = request.args.get("state")
+    if not state or state != session.get("oauth_state"):
+        return "State mismatch", 400
+    
+    if "error" in request.args:
+        return f"Error: {request.args['error']}", 400
+    
+    code = request.args.get("code")
+    if not code:
+        return "No code provided", 400
+    
     flow = make_flow()
-
+    flow.fetch_token(authorization_response=request.url)
+    credentials = flow.credentials
+    
+    email = None
     try:
-        flow.fetch_token(authorization_response=request.url)
-    except Exception as e:
-        return f"OAuth error: {str(e)}", 400
-
-    creds = flow.credentials
-
-    try:
-        service = build("gmail", "v1", credentials=creds)
+        service = build("gmail", "v1", credentials=credentials)
         profile = service.users().getProfile(userId="me").execute()
-        email_address = profile["emailAddress"]
+        email = profile.get("emailAddress")
     except Exception as e:
-        return f"Error getting Gmail profile: {str(e)}", 400
-
-    token_data = {
-        "token": creds.token,
-        "refresh_token": creds.refresh_token,
-        "token_uri": creds.token_uri,
-        "client_id": creds.client_id,
-        "client_secret": creds.client_secret,
-    }
-
+        print(f"Error getting email: {e}")
+        return "Error retrieving email", 500
+    
     db = get_db()
-    account = db.query(ConnectedAccount).filter_by(email=email_address).first()
-
-    if account:
-        account.encrypted_token = encrypt_token(token_data)
-    else:
+    if db is None:
+        return "Database unavailable", 500
+    
+    account = db.query(ConnectedAccount).filter_by(email=email).first()
+    if not account:
         account = ConnectedAccount(
-            email=email_address,
-            encrypted_token=encrypt_token(token_data),
-            connected_at=datetime.utcnow(),
+            email=email,
+            token=encrypt_token({
+                "token": credentials.token,
+                "refresh_token": credentials.refresh_token,
+                "token_uri": credentials.token_uri,
+                "client_id": credentials.client_id,
+                "client_secret": credentials.client_secret,
+                "scopes": credentials.scopes,
+            }),
+            last_sync=datetime.utcnow(),
         )
         db.add(account)
-
+    else:
+        account.token = encrypt_token({
+            "token": credentials.token,
+            "refresh_token": credentials.refresh_token,
+            "token_uri": credentials.token_uri,
+            "client_id": credentials.client_id,
+            "client_secret": credentials.client_secret,
+            "scopes": credentials.scopes,
+        })
+        account.last_sync = datetime.utcnow()
+    
     db.commit()
-
-    try:
-        sync_account(account, db)
-    except Exception as e:
-        print(f"Initial sync failed: {str(e)}")
-
-    return render_template("connect_success.html", email=email_address)
+    sync_account(account.id)
+    
+    return redirect(url_for("auth.index"))
 
 
 @auth_bp.route("/disconnect/<int:account_id>", methods=["POST"])
 def disconnect(account_id):
-    """Disconnect a Gmail account."""
+    """Disconnect an account."""
     db = get_db()
-    account = db.query(ConnectedAccount).get(account_id)
-
-    if not account:
-        return "Account not found", 404
-
-    db.delete(account)
-    db.commit()
-
-    return redirect(url_for("admin.dashboard"))
+    if db is None:
+        return "Database unavailable", 500
+    
+    account = db.query(ConnectedAccount).filter_by(id=account_id).first()
+    if account:
+        db.delete(account)
+        db.commit()
+    
+    return redirect(url_for("auth.index"))
