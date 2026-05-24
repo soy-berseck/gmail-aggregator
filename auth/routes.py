@@ -70,8 +70,6 @@ def connect():
             prompt="consent",
             code_challenge_method="S256",
         )
-        session["oauth_state"] = state
-        session["oauth_code_verifier"] = flow.code_verifier
         return redirect(auth_url)
     except ValueError as e:
         return render_template("error.html", message=str(e)), 500
@@ -82,20 +80,15 @@ def connect():
 @auth_bp.route("/oauth2callback")
 def oauth2callback():
     """Handle OAuth callback."""
-    state = request.args.get("state")
-    if not state or state != session.get("oauth_state"):
-        return "State mismatch", 400
-    
     if "error" in request.args:
         return f"Error: {request.args['error']}", 400
-    
+
     code = request.args.get("code")
     if not code:
         return "No code provided", 400
 
     flow = make_flow()
-    code_verifier = session.get("oauth_code_verifier")
-    flow.fetch_token(authorization_response=request.url, code_verifier=code_verifier)
+    flow.fetch_token(authorization_response=request.url)
     credentials = flow.credentials
     
     email = None
