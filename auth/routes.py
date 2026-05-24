@@ -18,14 +18,14 @@ def ensure_credentials_file():
     if not os.path.exists(Config.GOOGLE_CLIENT_SECRETS_FILE):
         client_id = os.environ.get("GOOGLE_CLIENT_ID")
         client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
-        
+
         if not client_id or not client_secret:
-            raise ValueError("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set")
-        
+            return False
+
         credentials = {
             "web": {
                 "client_id": client_id,
-                "project_id": "gmail-aggegator",
+                "project_id": "gmail-aggregator",
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
                 "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -35,11 +35,16 @@ def ensure_credentials_file():
         }
         with open(Config.GOOGLE_CLIENT_SECRETS_FILE, "w") as f:
             json.dump(credentials, f)
+    return True
 
 
 def make_flow():
     """Create a new Google OAuth flow."""
-    ensure_credentials_file()
+    if not ensure_credentials_file():
+        raise ValueError(
+            "Google OAuth credentials not configured. "
+            "Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables."
+        )
     flow = Flow.from_client_secrets_file(
         Config.GOOGLE_CLIENT_SECRETS_FILE,
         scopes=Config.SCOPES,
@@ -57,14 +62,19 @@ def index():
 @auth_bp.route("/connect")
 def connect():
     """Start OAuth flow."""
-    flow = make_flow()
-    auth_url, state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent",
-    )
-    session["oauth_state"] = state
-    return redirect(auth_url)
+    try:
+        flow = make_flow()
+        auth_url, state = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
+        )
+        session["oauth_state"] = state
+        return redirect(auth_url)
+    except ValueError as e:
+        return render_template("error.html", message=str(e)), 500
+    except Exception as e:
+        return render_template("error.html", message=f"Error: {str(e)}"), 500
 
 
 @auth_bp.route("/oauth2callback")
@@ -102,7 +112,7 @@ def oauth2callback():
     if not account:
         account = ConnectedAccount(
             email=email,
-            token=encrypt_token({
+            encrypted_token=encrypt_token({
                 "token": credentials.token,
                 "refresh_token": credentials.refresh_token,
                 "token_uri": credentials.token_uri,
@@ -110,11 +120,11 @@ def oauth2callback():
                 "client_secret": credentials.client_secret,
                 "scopes": credentials.scopes,
             }),
-            last_sync=datetime.utcnow(),
+            last_synced_at=datetime.utcnow(),
         )
         db.add(account)
     else:
-        account.token = encrypt_token({
+        account.encrypted_token = encrypt_token({
             "token": credentials.token,
             "refresh_token": credentials.refresh_token,
             "token_uri": credentials.token_uri,
@@ -122,10 +132,10 @@ def oauth2callback():
             "client_secret": credentials.client_secret,
             "scopes": credentials.scopes,
         })
-        account.last_sync = datetime.utcnow()
-    
+        account.last_synced_at = datetime.utcnow()
+
     db.commit()
-    sync_account(account.id)
+    sync_account(account, db)
     
     return redirect(url_for("auth.index"))
 

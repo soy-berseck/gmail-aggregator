@@ -18,7 +18,11 @@ class Config:
     # Google OAuth
     GOOGLE_CLIENT_SECRETS_FILE = "credentials.json"
     SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-    OAUTH_REDIRECT_URI = "http://localhost:5000/oauth2callback"
+    VERCEL_URL = os.environ.get("VERCEL_URL")
+    if VERCEL_URL:
+        OAUTH_REDIRECT_URI = f"https://{VERCEL_URL}/oauth2callback"
+    else:
+        OAUTH_REDIRECT_URI = os.environ.get("OAUTH_REDIRECT_URI", "http://localhost:5000/oauth2callback")
 
     # Token encryption
     FERNET_KEY = os.environ.get("FERNET_KEY")

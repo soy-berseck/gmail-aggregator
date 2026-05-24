@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Error - Gmail Aggregator{% endblock %}
+
+{% block content %}
+<div class="alert alert-danger" role="alert">
+    <h4 class="alert-heading">Error</h4>
+    <p>{{ message }}</p>
+    <hr>
+    <p class="mb-0">Please contact the administrator if this issue persists.</p>
+</div>
+<a href="{{ url_for('auth.index') }}" class="btn btn-primary">Go Back Home</a>
+{% endblock %}
