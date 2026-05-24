@@ -39,7 +39,17 @@ def ensure_credentials_file():
 
 
 def make_flow():
-    """Create a new Google OAuth flow."""
+    """Create a new Google OAuth flow.
+
+    NOTE: We disable PKCE auto-generation. google-auth-oauthlib >= 1.2 enables
+    PKCE by default (autogenerate_code_verifier=True). Because we use two
+    different Flow instances across /connect and /oauth2callback (and we don't
+    persist server-side session state on Vercel), the code_verifier generated
+    in /connect would be lost. That causes Google to reject fetch_token with
+    "Missing code verifier". Disabling PKCE makes this a plain web-server flow
+    that only relies on client_id + client_secret (which is safe for a
+    confidential "web" client like ours).
+    """
     if not ensure_credentials_file():
         raise ValueError(
             "Google OAuth credentials not configured. "
@@ -49,7 +59,10 @@ def make_flow():
         Config.GOOGLE_CLIENT_SECRETS_FILE,
         scopes=Config.SCOPES,
         redirect_uri=Config.OAUTH_REDIRECT_URI,
+        autogenerate_code_verifier=False,
     )
+    # Defensive: ensure no verifier is set so fetch_token() doesn't send one.
+    flow.code_verifier = None
     return flow
 
 
@@ -88,7 +101,13 @@ def oauth2callback():
         return render_template("error.html", message="No authorization code received"), 400
 
     flow = make_flow()
-    flow.fetch_token(authorization_response=request.url)
+    # On Vercel, request.url may be http:// behind the proxy even though the
+    # public URL is https://. google-auth-oauthlib validates the scheme against
+    # the configured redirect_uri, so we force https when behind Vercel.
+    authorization_response = request.url
+    if os.environ.get("VERCEL_URL") and authorization_response.startswith("http://"):
+        authorization_response = "https://" + authorization_response[len("http://"):]
+    flow.fetch_token(authorization_response=authorization_response)
     credentials = flow.credentials
     
     email = None
