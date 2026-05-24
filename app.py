@@ -1,6 +1,5 @@
 import os
 from flask import Flask
-from flask_session import Session
 from config import Config
 from db import init_db
 
@@ -9,7 +8,6 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    Session(app)
     init_db()
 
     from auth.routes import auth_bp
