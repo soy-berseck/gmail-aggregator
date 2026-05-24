@@ -82,6 +82,11 @@ def connect():
             include_granted_scopes="true",
             prompt="consent",
         )
+        # Store the state in memory_store so we can validate it in oauth2callback.
+        # This solves the state mismatch error on Vercel where each Lambda invocation
+        # is independent and doesn't share Flask session state.
+        from auth.memory_store import store_oauth_state
+        store_oauth_state(state)
         return redirect(auth_url)
     except ValueError as e:
         return render_template("error.html", message=str(e)), 500
@@ -96,18 +101,23 @@ def oauth2callback():
         error_msg = request.args.get("error_description", request.args.get("error", "Unknown error"))
         return render_template("error.html", message=f"Google OAuth Error: {error_msg}"), 400
 
+    # Validate the state parameter to prevent state mismatch errors on Vercel.
+    state = request.args.get("state")
+    if not state:
+        return render_template("error.html", message="No state parameter received"), 400
+
+    from auth.memory_store import verify_oauth_state
+    if not verify_oauth_state(state):
+        return render_template("error.html", message="State validation failed. Please try connecting again."), 400
+
     code = request.args.get("code")
     if not code:
         return render_template("error.html", message="No authorization code received"), 400
 
     flow = make_flow()
-    # On Vercel, request.url may be http:// behind the proxy even though the
-    # public URL is https://. google-auth-oauthlib validates the scheme against
-    # the configured redirect_uri, so we force https when behind Vercel.
-    authorization_response = request.url
-    if os.environ.get("VERCEL_URL") and authorization_response.startswith("http://"):
-        authorization_response = "https://" + authorization_response[len("http://"):]
-    flow.fetch_token(authorization_response=authorization_response)
+    # Pass only the code to fetch_token(), not the full authorization_response.
+    # This avoids state validation errors since we validated the state ourselves above.
+    flow.fetch_token(code=code)
     credentials = flow.credentials
     
     email = None

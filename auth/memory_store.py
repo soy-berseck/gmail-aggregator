@@ -17,6 +17,10 @@ _lock = Lock()
 #            "emails": [ { gmail_id, subject, sender, snippet, date }, ... ] }
 _accounts: dict = {}
 
+# OAuth state storage: state_value -> { "created_at": datetime }
+# Used to validate OAuth callback and prevent state mismatch errors on Vercel
+_oauth_states: dict = {}
+
 
 def remember_account(email: str, encrypted_token: str) -> None:
     with _lock:
@@ -68,3 +72,16 @@ def search_emails(query: str) -> list:
                     out.append(item)
     out.sort(key=lambda e: e.get("date") or datetime.min, reverse=True)
     return out
+
+
+def store_oauth_state(state: str) -> None:
+    with _lock:
+        _oauth_states[state] = {"created_at": datetime.utcnow()}
+
+
+def verify_oauth_state(state: str) -> bool:
+    with _lock:
+        if state in _oauth_states:
+            del _oauth_states[state]
+            return True
+        return False
