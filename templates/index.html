@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Gmail Aggregator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-lg mt-5">
+            <div class="card-body text-center p-5">
+                <h1 class="display-4 mb-3">📧 Gmail Aggregator</h1>
+                <p class="lead mb-4">
+                    Conecta múltiples cuentas de Gmail y busca correos en todas ellas.
+                </p>
+                <p class="text-muted mb-5">
+                    Encuentra facturas, recibos, pagos y más en todos tus correos.
+                </p>
+
+                <a href="{{ url_for('auth.connect') }}" class="btn btn-primary btn-lg me-2">
+                    📧 Conectar Gmail
+                </a>
+                <a href="{{ url_for('admin.login') }}" class="btn btn-outline-primary btn-lg">
+                    🔐 Admin Dashboard
+                </a>
+
+                <hr class="my-5">
+
+                <h5>¿Cómo funciona?</h5>
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <h6>1. Conecta</h6>
+                        <p class="small">Autoriza tu cuenta de Gmail con un click</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>2. Indexa</h6>
+                        <p class="small">La app guarda tus correos para búsqueda rápida</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>3. Busca</h6>
+                        <p class="small">Busca en todas tus cuentas a la vez</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

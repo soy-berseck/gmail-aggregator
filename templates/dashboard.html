@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Gmail Aggregator{% endblock %}
+
+{% block content %}
+<div class="mb-5">
+    <h2>Dashboard de Admin</h2>
+    <p class="text-muted">Administra tus cuentas conectadas y busca en todos tus correos</p>
+</div>
+
+<!-- Search Section -->
+<div class="card mb-5 shadow-sm">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.search') }}" class="d-flex gap-2">
+            <input
+                type="text"
+                name="q"
+                class="form-control"
+                placeholder="Buscar en todos los correos... (factura, pago, OpenAI, etc.)"
+                autofocus
+            >
+            <button type="submit" class="btn btn-primary">🔍 Buscar</button>
+        </form>
+    </div>
+</div>
+
+<!-- Accounts Section -->
+<div class="mb-5">
+    <h4>📧 Cuentas Conectadas ({{ accounts|length }})</h4>
+
+    {% if accounts %}
+        <div class="row">
+            {% for account in accounts %}
+                <div class="col-md-6 mb-3">
+                    <div class="card account-card">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ account.email }}</h5>
+                            <p class="card-text small text-muted">
+                                Conectada: {{ account.connected_at.strftime('%d/%m/%Y %H:%M') if account.connected_at else 'N/A' }}
+                            </p>
+                            {% if account.last_synced_at %}
+                                <p class="card-text small text-muted">
+                                    Última sincronización: {{ account.last_synced_at.strftime('%d/%m/%Y %H:%M') }}
+                                </p>
+                            {% endif %}
+
+                            <div class="d-flex gap-2 mt-3">
+                                <form method="POST" action="{{ url_for('admin.resync', account_id=account.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">🔄 Sincronizar</button>
+                                </form>
+                                <form method="POST" action="{{ url_for('auth.disconnect', account_id=account.id) }}" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Desconectar esta cuenta?');">🚫 Desconectar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <p>No hay cuentas conectadas. <a href="{{ url_for('auth.connect') }}">Conecta una cuenta de Gmail →</a></p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Actions -->
+<div class="card bg-light">
+    <div class="card-body">
+        <h5 class="card-title">Acciones</h5>
+        <a href="{{ url_for('auth.connect') }}" class="btn btn-success">
+            ➕ Conectar otra cuenta de Gmail
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Email Detail - Gmail Aggregator{% endblock %}
+
+{% block extra_css %}
+<style>
+    .email-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 20px;
+        border-radius: 4px 4px 0 0;
+    }
+    .email-body {
+        padding: 20px;
+        overflow: auto;
+    }
+    .email-body iframe {
+        width: 100%;
+        height: 600px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    .header-row {
+        margin-bottom: 12px;
+    }
+    .header-label {
+        font-weight: bold;
+        color: #495057;
+        display: inline-block;
+        width: 100px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm mb-3">← Volver</a>
+
+<div class="card shadow">
+    <div class="email-header">
+        <h4>{{ email.subject }}</h4>
+
+        <div class="header-row">
+            <span class="header-label">De:</span>
+            <span>{{ email.sender }}</span>
+        </div>
+
+        <div class="header-row">
+            <span class="header-label">Fecha:</span>
+            <span>{{ email.date.strftime('%d de %B de %Y a las %H:%M') if email.date else 'N/A' }}</span>
+        </div>
+
+        <div class="header-row">
+            <span class="header-label">Cuenta:</span>
+            <span><em>{{ email.account.email }}</em></span>
+        </div>
+
+        <div class="header-row">
+            <span class="header-label">ID:</span>
+            <span><code>{{ email.gmail_id }}</code></span>
+        </div>
+    </div>
+
+    <div class="email-body">
+        {% if body %}
+            <!-- Render HTML body safely in iframe -->
+            <iframe srcdoc="{{ body|replace('"', '&quot;')|safe }}"></iframe>
+        {% else %}
+            <div class="alert alert-warning">
+                No se pudo extraer el cuerpo del email. Intenta acceder directamente desde Gmail.
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card-footer bg-light">
+        <a href="https://mail.google.com/mail/u/0/#inbox/{{ email.thread_id }}" target="_blank" class="btn btn-sm btn-outline-primary">
+            📧 Abrir en Gmail
+        </a>
+    </div>
+</div>
+{% endblock %}

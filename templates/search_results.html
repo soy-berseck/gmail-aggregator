@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}Resultados de Búsqueda - Gmail Aggregator{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary btn-sm">← Volver</a>
+</div>
+
+<div class="card mb-4 shadow-sm">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.search') }}" class="d-flex gap-2">
+            <input
+                type="text"
+                name="q"
+                class="form-control"
+                placeholder="Buscar en todos los correos..."
+                value="{{ query }}"
+                autofocus
+            >
+            <button type="submit" class="btn btn-primary">🔍 Buscar</button>
+        </form>
+    </div>
+</div>
+
+{% if query %}
+    <h4>
+        Resultados para: <strong>"{{ query }}"</strong>
+        <span class="badge bg-secondary">{{ total }} resultados</span>
+    </h4>
+
+    {% if results %}
+        <div class="mt-4">
+            {% for email in results %}
+                <a href="{{ url_for('admin.email_detail', email_id=email.id) }}" class="text-decoration-none text-dark">
+                    <div class="email-item">
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ email.subject[:80] }}</strong>
+                            <small class="text-muted">{{ email.date.strftime('%d/%m/%Y') if email.date else 'Sin fecha' }}</small>
+                        </div>
+                        <small class="text-muted">De: {{ email.sender[:50] }}</small>
+                        <div class="email-snippet">{{ email.snippet[:100] }}...</div>
+                        <small class="text-muted d-block mt-2">Cuenta: <em>{{ email.account.email }}</em></small>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page > 1 %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.search', q=query, page=1) }}">Primero</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.search', q=query, page=page-1) }}">Anterior</a>
+                        </li>
+                    {% endif %}
+
+                    {% for p in range(max(1, page-2), min(total_pages+1, page+3)) %}
+                        {% if p == page %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ p }}</span>
+                            </li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin.search', q=query, page=p) }}">{{ p }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page < total_pages %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.search', q=query, page=page+1) }}">Siguiente</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('admin.search', q=query, page=total_pages) }}">Último</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-info mt-4">
+            <p>No se encontraron resultados para "<strong>{{ query }}</strong>"</p>
+            <small>Intenta con otras palabras clave.</small>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="alert alert-secondary">
+        <p>Ingresa un término de búsqueda para comenzar.</p>
+    </div>
+{% endif %}
+{% endblock %}

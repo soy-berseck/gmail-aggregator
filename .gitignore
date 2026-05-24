@@ -1,0 +1,15 @@
+credentials.json
+.env
+*.db
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+flask_session/
+.DS_Store
+*.log
+.idea/
+.vscode/

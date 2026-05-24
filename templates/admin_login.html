@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login - Gmail Aggregator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow-lg mt-5">
+            <div class="card-body p-5">
+                <h3 class="card-title text-center mb-4">🔐 Admin Dashboard</h3>
+
+                {% if error %}
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        {{ error }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endif %}
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="password" name="password" required autofocus>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+                </form>
+
+                <hr class="my-4">
+                <p class="text-center small text-muted">
+                    <a href="{{ url_for('auth.index') }}">← Volver al inicio</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Conexión Exitosa - Gmail Aggregator{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="alert alert-success mt-5" role="alert">
+            <h4 class="alert-heading">✅ ¡Conexión exitosa!</h4>
+            <p>Tu cuenta <strong>{{ email }}</strong> ha sido conectada correctamente.</p>
+            <hr>
+            <p class="mb-0">
+                Tus correos están siendo indexados. Puedes ir al
+                <a href="{{ url_for('admin.dashboard') }}" class="alert-link">Dashboard</a>
+                para empezar a buscar.
+            </p>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5>¿Qué sigue?</h5>
+                <ul>
+                    <li>Puedes conectar más cuentas de Gmail haciendo click en "Conectar Gmail"</li>
+                    <li>Accede al Dashboard para buscar en todos tus correos</li>
+                    <li>La búsqueda es case-insensitive y busca en asunto, remitente y vista previa</li>
+                </ul>
+
+                <div class="mt-4">
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-primary">
+                        Ir al Dashboard →
+                    </a>
+                    <a href="{{ url_for('auth.connect') }}" class="btn btn-outline-primary">
+                        Conectar otra cuenta
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
