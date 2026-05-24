@@ -2,11 +2,12 @@ from datetime import datetime
 from gmail.client import build_gmail_service
 from models import ConnectedAccount, EmailMetadata
 from config import Config
+from auth.memory_store import set_emails
 import email.utils
 
 
 def sync_account(account: ConnectedAccount, db_session, query: str = None):
-    """Fetch email metadata from Gmail and store in SQLite."""
+    """Fetch email metadata from Gmail and store in SQLite + memory mirror."""
     if query is None:
         query = Config.DEFAULT_QUERY
 
@@ -29,13 +30,27 @@ def sync_account(account: ConnectedAccount, db_session, query: str = None):
     messages = results.get("messages", [])
     print(f"Found {len(messages)} emails for {account.email}")
 
+    mem_emails = []
+
     for msg_ref in messages:
-        existing = db_session.query(EmailMetadata).filter_by(
-            account_id=account.id,
-            gmail_id=msg_ref["id"]
-        ).first()
+        existing = None
+        try:
+            existing = db_session.query(EmailMetadata).filter_by(
+                account_id=account.id,
+                gmail_id=msg_ref["id"]
+            ).first()
+        except Exception:
+            existing = None
 
         if existing:
+            mem_emails.append({
+                "gmail_id": existing.gmail_id,
+                "thread_id": existing.thread_id,
+                "subject": existing.subject,
+                "sender": existing.sender,
+                "date": existing.date,
+                "snippet": existing.snippet,
+            })
             continue
 
         try:
@@ -61,17 +76,43 @@ def sync_account(account: ConnectedAccount, db_session, query: str = None):
         except Exception:
             pass
 
-        em = EmailMetadata(
-            account_id=account.id,
-            gmail_id=msg["id"],
-            thread_id=msg.get("threadId"),
-            subject=headers.get("Subject", "(no subject)"),
-            sender=headers.get("From", ""),
-            date=date,
-            snippet=msg.get("snippet", ""),
-        )
-        db_session.add(em)
+        subject = headers.get("Subject", "(no subject)")
+        sender = headers.get("From", "")
+        snippet = msg.get("snippet", "")
 
-    account.last_synced_at = datetime.utcnow()
-    db_session.commit()
+        try:
+            em = EmailMetadata(
+                account_id=account.id,
+                gmail_id=msg["id"],
+                thread_id=msg.get("threadId"),
+                subject=subject,
+                sender=sender,
+                date=date,
+                snippet=snippet,
+            )
+            db_session.add(em)
+        except Exception as e:
+            print(f"WARNING: could not add email to DB: {e}")
+
+        mem_emails.append({
+            "gmail_id": msg["id"],
+            "thread_id": msg.get("threadId"),
+            "subject": subject,
+            "sender": sender,
+            "date": date,
+            "snippet": snippet,
+        })
+
+    try:
+        account.last_synced_at = datetime.utcnow()
+        db_session.commit()
+    except Exception as e:
+        print(f"WARNING: db commit failed during sync: {e}")
+
+    # Mirror to in-memory store so /search keeps working across cold starts.
+    try:
+        set_emails(account.email, mem_emails)
+    except Exception as e:
+        print(f"WARNING: memory mirror failed: {e}")
+
     print(f"Sync complete for {account.email}")

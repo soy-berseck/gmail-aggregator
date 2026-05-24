@@ -119,52 +119,78 @@ def oauth2callback():
         print(f"Error getting email: {e}")
         return "Error retrieving email", 500
     
+    token_payload = {
+        "token": credentials.token,
+        "refresh_token": credentials.refresh_token,
+        "token_uri": credentials.token_uri,
+        "client_id": credentials.client_id,
+        "client_secret": credentials.client_secret,
+        "scopes": credentials.scopes,
+    }
+    encrypted = encrypt_token(token_payload)
+
     db = get_db()
     if db is None:
-        return "Database unavailable", 500
-    
-    account = db.query(ConnectedAccount).filter_by(email=email).first()
-    if not account:
-        account = ConnectedAccount(
-            email=email,
-            encrypted_token=encrypt_token({
-                "token": credentials.token,
-                "refresh_token": credentials.refresh_token,
-                "token_uri": credentials.token_uri,
-                "client_id": credentials.client_id,
-                "client_secret": credentials.client_secret,
-                "scopes": credentials.scopes,
-            }),
-            last_synced_at=datetime.utcnow(),
-        )
-        db.add(account)
-    else:
-        account.encrypted_token = encrypt_token({
-            "token": credentials.token,
-            "refresh_token": credentials.refresh_token,
-            "token_uri": credentials.token_uri,
-            "client_id": credentials.client_id,
-            "client_secret": credentials.client_secret,
-            "scopes": credentials.scopes,
-        })
-        account.last_synced_at = datetime.utcnow()
+        # Last-resort fallback: keep the token in the process-wide memory
+        # store so the user can still search. No persistence beyond this
+        # warm Lambda's lifetime.
+        from auth.memory_store import remember_account
+        remember_account(email, encrypted)
+        return redirect(url_for("auth.index"))
 
-    db.commit()
-    sync_account(account, db)
-    
+    try:
+        account = db.query(ConnectedAccount).filter_by(email=email).first()
+        if not account:
+            account = ConnectedAccount(
+                email=email,
+                encrypted_token=encrypted,
+                last_synced_at=datetime.utcnow(),
+            )
+            db.add(account)
+        else:
+            account.encrypted_token = encrypted
+            account.last_synced_at = datetime.utcnow()
+
+        db.commit()
+    except Exception as e:
+        print(f"WARNING: failed to persist account in DB: {e}")
+        from auth.memory_store import remember_account
+        remember_account(email, encrypted)
+        return redirect(url_for("auth.index"))
+
+    # Mirror to the in-memory store too, so search works even if DB resets.
+    try:
+        from auth.memory_store import remember_account
+        remember_account(email, encrypted)
+    except Exception:
+        pass
+
+    # Sync emails (best-effort; do not block the OAuth response on errors).
+    try:
+        sync_account(account, db)
+    except Exception as e:
+        print(f"WARNING: sync_account failed for {email}: {e}")
+
     return redirect(url_for("auth.index"))
 
 
 @auth_bp.route("/disconnect/<int:account_id>", methods=["POST"])
 def disconnect(account_id):
     """Disconnect an account."""
+    from auth.memory_store import forget_account
+
     db = get_db()
-    if db is None:
-        return "Database unavailable", 500
-    
-    account = db.query(ConnectedAccount).filter_by(id=account_id).first()
-    if account:
-        db.delete(account)
-        db.commit()
-    
+    if db is not None:
+        try:
+            account = db.query(ConnectedAccount).filter_by(id=account_id).first()
+            if account:
+                try:
+                    forget_account(account.email)
+                except Exception:
+                    pass
+                db.delete(account)
+                db.commit()
+        except Exception as e:
+            print(f"WARNING: disconnect DB op failed: {e}")
+
     return redirect(url_for("auth.index"))

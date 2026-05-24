@@ -5,9 +5,15 @@ from gmail.client import build_gmail_service, fetch_email_body
 from gmail.sync import sync_account
 from db import get_db
 from config import Config
+from auth import memory_store
+from crypto import decrypt_token, encrypt_token
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 import email
 from email.mime.text import MIMEText
 import base64
+from datetime import datetime
+import email.utils as _email_utils
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -45,44 +51,176 @@ def logout():
 @admin_bp.route("/dashboard")
 @require_admin
 def dashboard():
-    """Admin dashboard showing connected accounts."""
+    """Admin dashboard showing connected accounts.
+
+    Falls back to the in-memory store when the DB is unavailable or empty
+    (e.g. after a Vercel cold start with the in-memory SQLite reset).
+    """
+    accounts = []
     db = get_db()
-    accounts = db.query(ConnectedAccount).all()
+    if db is not None:
+        try:
+            accounts = db.query(ConnectedAccount).all()
+        except Exception as e:
+            print(f"WARNING: dashboard DB query failed: {e}")
+            accounts = []
+
+    if not accounts:
+        mem = memory_store.list_accounts()
+        # Build lightweight objects compatible with the template.
+        class _A:
+            pass
+        proxies = []
+        for i, m in enumerate(mem, start=1):
+            a = _A()
+            a.id = i
+            a.email = m["email"]
+            a.last_synced_at = m.get("last_synced_at")
+            a.connected_at = m.get("last_synced_at")
+            a.emails = []
+            proxies.append(a)
+        accounts = proxies
+
     return render_template("dashboard.html", accounts=accounts)
+
+
+def _live_search_in_memory_accounts(query: str):
+    """When DB is empty/unavailable, call Gmail live for accounts in memory."""
+    out = []
+    accounts = memory_store.list_accounts()
+    if not accounts:
+        return out
+    gmail_query = query if query else Config.DEFAULT_QUERY
+    for acct in accounts:
+        email_addr = acct["email"]
+        data = memory_store.get_account(email_addr) or {}
+        enc = data.get("encrypted_token")
+        if not enc:
+            continue
+        try:
+            token_data = decrypt_token(enc)
+            creds = Credentials(
+                token=token_data.get("token"),
+                refresh_token=token_data.get("refresh_token"),
+                token_uri=token_data.get("token_uri"),
+                client_id=token_data.get("client_id"),
+                client_secret=token_data.get("client_secret"),
+                scopes=Config.SCOPES,
+            )
+            service = build("gmail", "v1", credentials=creds)
+            res = service.users().messages().list(
+                userId="me", q=gmail_query, maxResults=50
+            ).execute()
+            for ref in res.get("messages", []) or []:
+                try:
+                    msg = service.users().messages().get(
+                        userId="me",
+                        id=ref["id"],
+                        format="metadata",
+                        metadataHeaders=["Subject", "From", "Date"],
+                    ).execute()
+                except Exception:
+                    continue
+                headers = {}
+                if "payload" in msg and "headers" in msg["payload"]:
+                    headers = {h["name"]: h["value"] for h in msg["payload"]["headers"]}
+                date_str = headers.get("Date", "")
+                d = None
+                try:
+                    if date_str:
+                        d = _email_utils.parsedate_to_datetime(date_str)
+                except Exception:
+                    pass
+                out.append({
+                    "id": msg["id"],
+                    "gmail_id": msg["id"],
+                    "subject": headers.get("Subject", "(no subject)"),
+                    "sender": headers.get("From", ""),
+                    "snippet": msg.get("snippet", ""),
+                    "date": d,
+                    "account_email": email_addr,
+                })
+            # refresh persisted token in case it changed
+            try:
+                if creds.token != token_data.get("token"):
+                    new_td = {**token_data, "token": creds.token}
+                    memory_store.remember_account(email_addr, encrypt_token(new_td))
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"WARNING: live search failed for {email_addr}: {e}")
+    out.sort(key=lambda r: r.get("date") or datetime.min, reverse=True)
+    return out
+
+
+class _ResultProxy:
+    """Object that quacks like an EmailMetadata row for the template."""
+    def __init__(self, d):
+        self.id = d.get("id") or d.get("gmail_id")
+        self.gmail_id = d.get("gmail_id")
+        self.subject = d.get("subject")
+        self.sender = d.get("sender")
+        self.snippet = d.get("snippet")
+        self.date = d.get("date")
+        class _Acct: pass
+        a = _Acct()
+        a.email = d.get("account_email", "")
+        self.account = a
 
 
 @admin_bp.route("/search")
 @require_admin
 def search():
-    """Search emails across all accounts."""
+    """Search emails across all accounts.
+
+    Tries the DB first; if empty/unavailable, falls back to the in-memory
+    mirror; if that is also empty, performs a live Gmail search using the
+    in-memory OAuth tokens.
+    """
     query = request.args.get("q", "").strip()
     page = int(request.args.get("page", 1))
     per_page = 25
 
     db = get_db()
-    base_q = db.query(EmailMetadata)
+    rows = []
+    total = 0
 
-    if query:
-        like = f"%{query}%"
-        base_q = base_q.filter(
-            or_(
-                EmailMetadata.subject.ilike(like),
-                EmailMetadata.sender.ilike(like),
-                EmailMetadata.snippet.ilike(like),
-            )
-        )
+    if db is not None:
+        try:
+            base_q = db.query(EmailMetadata)
+            if query:
+                like = f"%{query}%"
+                base_q = base_q.filter(
+                    or_(
+                        EmailMetadata.subject.ilike(like),
+                        EmailMetadata.sender.ilike(like),
+                        EmailMetadata.snippet.ilike(like),
+                    )
+                )
+            total = base_q.count()
+            rows = (base_q.order_by(EmailMetadata.date.desc())
+                    .offset((page - 1) * per_page)
+                    .limit(per_page)
+                    .all())
+        except Exception as e:
+            print(f"WARNING: DB search failed: {e}")
+            rows = []
+            total = 0
 
-    total = base_q.count()
-    results = base_q.order_by(EmailMetadata.date.desc()) \
-        .offset((page - 1) * per_page) \
-        .limit(per_page) \
-        .all()
+    if not rows:
+        mem_hits = memory_store.search_emails(query)
+        if not mem_hits:
+            mem_hits = _live_search_in_memory_accounts(query)
+        total = len(mem_hits)
+        start = (page - 1) * per_page
+        end = start + per_page
+        rows = [_ResultProxy(d) for d in mem_hits[start:end]]
 
     total_pages = (total + per_page - 1) // per_page
 
     return render_template(
         "search_results.html",
-        results=results,
+        results=rows,
         query=query,
         page=page,
         total=total,
@@ -116,7 +254,12 @@ def extract_body_from_payload(payload):
 def email_detail(email_id):
     """View full email."""
     db = get_db()
-    em = db.query(EmailMetadata).get(email_id)
+    if db is None:
+        return "Database unavailable", 503
+    try:
+        em = db.query(EmailMetadata).get(email_id)
+    except Exception as e:
+        return f"Database error: {e}", 503
 
     if not em:
         return "Email not found", 404
@@ -142,15 +285,19 @@ def email_detail(email_id):
 def resync(account_id):
     """Manually resync an account."""
     db = get_db()
-    account = db.query(ConnectedAccount).get(account_id)
+    if db is None:
+        return redirect(url_for("admin.dashboard"))
+    try:
+        account = db.query(ConnectedAccount).get(account_id)
+    except Exception:
+        account = None
 
     if not account:
-        return "Account not found", 404
+        return redirect(url_for("admin.dashboard"))
 
     try:
         sync_account(account, db)
-        message = f"Sincronización completada para {account.email}"
     except Exception as e:
-        message = f"Error: {str(e)}"
+        print(f"WARNING: resync failed: {e}")
 
     return redirect(url_for("admin.dashboard"))

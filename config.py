@@ -11,7 +11,12 @@ else:
 class Config:
     # Flask
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-change-in-production")
-    DATABASE_URL = "sqlite:///gmail_aggregator.db"
+    # On Vercel (read-only filesystem) use in-memory SQLite. Locally persist to file.
+    IS_VERCEL = bool(os.environ.get("VERCEL_URL") or os.environ.get("VERCEL"))
+    DATABASE_URL = os.environ.get(
+        "DATABASE_URL",
+        "sqlite:///:memory:" if IS_VERCEL else "sqlite:///gmail_aggregator.db",
+    )
     SESSION_TYPE = "null"
     SESSION_PERMANENT = False
 
