@@ -1,33 +1,146 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Login - Gmail Aggregator{% endblock %}
+{% block title %}Acceso Admin - Cumandes{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100vh - 200px);
+    }
+
+    .login-card {
+        background: white;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        border-radius: 12px;
+        width: 100%;
+        max-width: 420px;
+    }
+
+    .login-card .card-body {
+        padding: 50px 40px;
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .login-header h3 {
+        color: #da291c;
+        font-weight: 900;
+        font-size: 1.8rem;
+        margin-bottom: 10px;
+    }
+
+    .login-header p {
+        color: #666;
+        font-size: 0.95rem;
+    }
+
+    .form-label {
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+
+    .form-control {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px 15px;
+        font-size: 0.95rem;
+    }
+
+    .form-control:focus {
+        border-color: #da291c;
+        box-shadow: 0 0 0 3px rgba(218, 41, 28, 0.1);
+    }
+
+    .btn-login {
+        background-color: #da291c;
+        color: white;
+        border: none;
+        font-weight: 700;
+        padding: 12px;
+        border-radius: 8px;
+        width: 100%;
+        transition: all 0.3s;
+    }
+
+    .btn-login:hover {
+        background-color: #b8201a;
+        color: white;
+    }
+
+    .alert {
+        border: none;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .alert-danger {
+        background-color: #fef2f1;
+        color: #da291c;
+        border-left: 4px solid #da291c;
+    }
+
+    .footer-link {
+        text-align: center;
+        margin-top: 25px;
+        padding-top: 25px;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .footer-link a {
+        color: #da291c;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .footer-link a:hover {
+        color: #b8201a;
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-5">
-        <div class="card shadow-lg mt-5">
-            <div class="card-body p-5">
-                <h3 class="card-title text-center mb-4">🔐 Admin Dashboard</h3>
+<div class="login-container">
+    <div class="login-card">
+        <div class="card-body">
+            <div class="login-header">
+                <h3>🔐 Panel Administrativo</h3>
+                <p>Acceso restringido a usuarios autorizados</p>
+            </div>
 
-                {% if error %}
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        {{ error }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endif %}
+            {% if error %}
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <strong>Error:</strong> {{ error }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endif %}
 
-                <form method="POST">
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Contraseña</label>
-                        <input type="password" class="form-control" id="password" name="password" required autofocus>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">Ingresar</button>
-                </form>
+            <form method="POST">
+                <div class="mb-4">
+                    <label for="password" class="form-label">Contraseña de administrador</label>
+                    <input
+                        type="password"
+                        class="form-control"
+                        id="password"
+                        name="password"
+                        placeholder="Ingresa tu contraseña"
+                        required
+                        autofocus
+                    >
+                </div>
+                <button type="submit" class="btn btn-login">Acceder al Panel</button>
+            </form>
 
-                <hr class="my-4">
-                <p class="text-center small text-muted">
-                    <a href="{{ url_for('auth.index') }}">← Volver al inicio</a>
-                </p>
+            <div class="footer-link">
+                <a href="{{ url_for('auth.index') }}">← Volver al inicio</a>
             </div>
         </div>
     </div>
