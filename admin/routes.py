@@ -9,13 +9,25 @@ from auth import memory_store
 from crypto import decrypt_token, encrypt_token
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from markupsafe import Markup
 import email
 from email.mime.text import MIMEText
 import base64
 from datetime import datetime
 import email.utils as _email_utils
+import re
 
 admin_bp = Blueprint("admin", __name__)
+
+
+def highlight_query(text, query):
+    """Highlight query words in text with yellow background."""
+    if not text or not query:
+        return text
+    # Case-insensitive highlight
+    pattern = re.compile(re.escape(query), re.IGNORECASE)
+    highlighted = pattern.sub(lambda m: f'<mark style="background-color: #ffff00;">{m.group()}</mark>', text)
+    return Markup(highlighted)
 
 
 def require_admin(f):
@@ -228,6 +240,7 @@ def search():
         total_pages=total_pages,
         max=max,
         min=min,
+        highlight_query=highlight_query,
     )
 
 

@@ -35,11 +35,11 @@
                 <a href="{{ url_for('admin.email_detail', email_id=email.id) }}" class="text-decoration-none text-dark">
                     <div class="email-item">
                         <div class="d-flex justify-content-between">
-                            <strong>{{ email.subject[:80] }}</strong>
+                            <strong>{{ highlight_query(email.subject[:80], query) }}</strong>
                             <small class="text-muted">{{ email.date.strftime('%d/%m/%Y') if email.date else 'Sin fecha' }}</small>
                         </div>
-                        <small class="text-muted">De: {{ email.sender[:50] }}</small>
-                        <div class="email-snippet">{{ email.snippet[:100] }}...</div>
+                        <small class="text-muted">De: {{ highlight_query(email.sender[:50], query) }}</small>
+                        <div class="email-snippet">{{ highlight_query(email.snippet[:100], query) }}...</div>
                         <small class="text-muted d-block mt-2">Cuenta: <em>{{ email.account.email }}</em></small>
                     </div>
                 </a>
