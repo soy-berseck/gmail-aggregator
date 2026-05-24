@@ -62,13 +62,55 @@ from cryptography.fernet import Fernet
 print(Fernet.generate_key().decode())
 ```
 
-### Paso 4: Ejecutar la aplicación
+### Paso 4: Ejecutar la aplicación localmente
 
 ```bash
 python app.py
 ```
 
 Abre [http://localhost:5000](http://localhost:5000) en tu navegador.
+
+## Desplegar a Vercel
+
+Esta aplicación está configurada para desplegarse en Vercel como una función serverless.
+
+### Requisitos
+
+- Cuenta en Vercel
+- Repositorio en GitHub conectado
+
+### Pasos
+
+1. **Conectar el repositorio a Vercel:**
+   - Ve a [vercel.com](https://vercel.com)
+   - Importa el repositorio de GitHub
+   - Vercel detectará automáticamente la configuración de `vercel.json`
+
+2. **Configurar variables de entorno en Vercel:**
+   - En el panel de Vercel, ve a Settings → Environment Variables
+   - Agrega las siguientes variables:
+     - `GOOGLE_CLIENT_ID`: Tu Client ID de Google OAuth
+     - `GOOGLE_CLIENT_SECRET`: Tu Client Secret de Google OAuth
+     - `FERNET_KEY`: Tu clave Fernet generada
+     - `ADMIN_PASSWORD`: Tu contraseña de admin
+     - `SECRET_KEY`: Tu secret key
+
+3. **Actualizar el redirect URI en Google Cloud Console:**
+   - En Google Cloud Console, ve a APIs & Services → Credentials
+   - Edita tu OAuth client ID
+   - Agrega a "Authorized redirect URIs": `https://your-vercel-domain.vercel.app/oauth2callback`
+   - Reemplaza `your-vercel-domain` con tu dominio real de Vercel
+
+4. **Deploy:**
+   - Vercel desplegará automáticamente cuando hagas push a main
+   - O despliega manualmente desde el panel de Vercel
+
+### Notas sobre Vercel
+
+- ⚠️ **Base de datos**: SQLite no persiste entre requests en Vercel. Considera migrar a PostgreSQL en producción.
+- ✅ La aplicación maneja gracefully cuando la BD no está disponible
+- ✅ `VERCEL_URL` se detecta automáticamente para configurar el redirect URI correcto
+- ✅ Optimizado para la arquitectura serverless de Vercel
 
 ## Uso
 
