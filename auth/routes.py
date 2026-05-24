@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Blueprint, redirect, session, url_for, request, render_template
+from flask import Blueprint, redirect, session, url_for, request, render_template, make_response
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from crypto import encrypt_token
@@ -70,7 +70,16 @@ def connect():
             prompt="consent",
             code_challenge_method="S256",
         )
-        return redirect(auth_url)
+        response = make_response(redirect(auth_url))
+        response.set_cookie(
+            "oauth_code_verifier",
+            flow.code_verifier,
+            httponly=True,
+            secure=True,
+            samesite="Lax",
+            max_age=600,  # 10 minutes
+        )
+        return response
     except ValueError as e:
         return render_template("error.html", message=str(e)), 500
     except Exception as e:
@@ -87,8 +96,11 @@ def oauth2callback():
     if not code:
         return "No code provided", 400
 
+    # Get code_verifier from cookie (set during /connect)
+    code_verifier = request.cookies.get("oauth_code_verifier")
+
     flow = make_flow()
-    flow.fetch_token(authorization_response=request.url)
+    flow.fetch_token(authorization_response=request.url, code_verifier=code_verifier)
     credentials = flow.credentials
     
     email = None
