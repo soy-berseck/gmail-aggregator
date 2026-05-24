@@ -254,15 +254,71 @@ def extract_body_from_payload(payload):
 @admin_bp.route("/email/<email_id>")
 @require_admin
 def email_detail(email_id):
-    """View full email."""
+    """View full email from DB or live from Gmail."""
     db = get_db()
     em = None
+    account_email = None
 
     if db is not None:
         try:
             em = db.query(EmailMetadata).filter_by(gmail_id=email_id).first()
+            if em:
+                account_email = em.account.email
         except Exception as e:
             print(f"WARNING: DB lookup failed: {e}")
+
+    # If not in DB, search in memory store and live accounts
+    if not em:
+        accounts = memory_store.list_accounts()
+        for acct in accounts:
+            data = memory_store.get_account(acct["email"]) or {}
+            enc = data.get("encrypted_token")
+            if not enc:
+                continue
+            try:
+                token_data = decrypt_token(enc)
+                creds = Credentials(
+                    token=token_data.get("token"),
+                    refresh_token=token_data.get("refresh_token"),
+                    token_uri=token_data.get("token_uri"),
+                    client_id=token_data.get("client_id"),
+                    client_secret=token_data.get("client_secret"),
+                    scopes=Config.SCOPES,
+                )
+                service = build("gmail", "v1", credentials=creds)
+                full_msg = service.users().messages().get(
+                    userId="me",
+                    id=email_id,
+                    format="full"
+                ).execute()
+
+                headers = {}
+                if "payload" in full_msg and "headers" in full_msg["payload"]:
+                    headers = {h["name"]: h["value"] for h in full_msg["payload"]["headers"]}
+
+                body = extract_body_from_payload(full_msg.get("payload", {}))
+
+                # Build minimal email object for template
+                class _Email: pass
+                em = _Email()
+                em.subject = headers.get("Subject", "(no subject)")
+                em.sender = headers.get("From", "")
+                em.gmail_id = email_id
+                account_email = acct["email"]
+
+                class _Account: pass
+                a = _Account()
+                a.email = acct["email"]
+                em.account = a
+
+                return render_template(
+                    "email_detail.html",
+                    email=em,
+                    body=body,
+                    full_msg=full_msg
+                )
+            except Exception:
+                continue
 
     if not em:
         return "Email not found", 404
