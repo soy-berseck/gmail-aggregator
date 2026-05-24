@@ -68,8 +68,10 @@ def connect():
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
+            code_challenge_method="S256",
         )
         session["oauth_state"] = state
+        session["oauth_code_verifier"] = flow.code_verifier
         return redirect(auth_url)
     except ValueError as e:
         return render_template("error.html", message=str(e)), 500
@@ -90,9 +92,10 @@ def oauth2callback():
     code = request.args.get("code")
     if not code:
         return "No code provided", 400
-    
+
     flow = make_flow()
-    flow.fetch_token(authorization_response=request.url)
+    code_verifier = session.get("oauth_code_verifier")
+    flow.fetch_token(authorization_response=request.url, code_verifier=code_verifier)
     credentials = flow.credentials
     
     email = None
