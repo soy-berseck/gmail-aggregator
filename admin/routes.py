@@ -249,17 +249,18 @@ def extract_body_from_payload(payload):
     return body
 
 
-@admin_bp.route("/email/<int:email_id>")
+@admin_bp.route("/email/<email_id>")
 @require_admin
 def email_detail(email_id):
     """View full email."""
     db = get_db()
-    if db is None:
-        return "Database unavailable", 503
-    try:
-        em = db.query(EmailMetadata).get(email_id)
-    except Exception as e:
-        return f"Database error: {e}", 503
+    em = None
+
+    if db is not None:
+        try:
+            em = db.query(EmailMetadata).filter_by(gmail_id=email_id).first()
+        except Exception as e:
+            print(f"WARNING: DB lookup failed: {e}")
 
     if not em:
         return "Email not found", 404
