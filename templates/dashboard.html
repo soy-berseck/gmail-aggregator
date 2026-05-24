@@ -221,11 +221,11 @@
 <div class="it-team-appreciation">
     <h4>¡Gracias Equipo IT!</h4>
     <img src="{{ url_for('static', filename='it-team-meme.webp') }}" alt="IT Team Appreciation">
-    <p>para el equipo de IT por favor 🚀</p>
+    <p>para el equipo de IT por favor</p>
 </div>
 
 <div class="dashboard-header">
-    <h2>📊 Panel de Control</h2>
+    <h2>Panel de Control</h2>
     <p class="text-muted">Administra tus cuentas de Gmail y busca en todos tus correos de forma centralizada</p>
 </div>
 
@@ -239,7 +239,7 @@
                 placeholder="Busca facturas, pagos, Bancolombia, etc..."
                 autofocus
             >
-            <button type="submit" class="btn btn-primary">🔍 Buscar</button>
+            <button type="submit" class="btn btn-primary">Buscar</button>
         </form>
     </div>
 </div>
@@ -247,7 +247,7 @@
 <!-- Accounts Section -->
 <div class="mb-5">
     <div class="section-title">
-        📧 Cuentas Conectadas
+        Cuentas Conectadas
         <span class="badge bg-primary">{{ accounts|length }}</span>
     </div>
 
@@ -258,7 +258,7 @@
                     <div class="card-body">
                         <h5 class="card-title">{{ account.email }}</h5>
 
-                        <div class="account-badge">✓ Activa</div>
+                        <div class="account-badge">Activa</div>
 
                         <div class="account-meta">
                             <strong>Conectada:</strong> {{ account.connected_at.strftime('%d/%m/%Y a las %H:%M') if account.connected_at else 'N/A' }}
@@ -272,10 +272,10 @@
 
                         <div class="d-flex gap-2 mt-4">
                             <form method="POST" action="{{ url_for('admin.resync', account_id=account.id) }}" style="display: inline;">
-                                <button type="submit" class="btn btn-sync btn-sm">🔄 Sincronizar</button>
+                                <button type="submit" class="btn btn-sync btn-sm">Sincronizar</button>
                             </form>
                             <form method="POST" action="{{ url_for('auth.disconnect', account_id=account.id) }}" style="display: inline;">
-                                <button type="submit" class="btn btn-disconnect btn-sm" onclick="return confirm('¿Desconectar esta cuenta?');">❌ Desconectar</button>
+                                <button type="submit" class="btn btn-disconnect btn-sm" onclick="return confirm('¿Desconectar esta cuenta?');">Desconectar</button>
                             </form>
                         </div>
                     </div>
@@ -284,7 +284,7 @@
         </div>
     {% else %}
         <div class="empty-state">
-            <h5>🔗 No hay cuentas conectadas</h5>
+            <h5>No hay cuentas conectadas</h5>
             <p>Conecta tu primera cuenta de Gmail para comenzar</p>
             <a href="{{ url_for('auth.connect') }}" class="btn btn-primary">
                 Conectar Gmail ahora
@@ -295,7 +295,7 @@
 
 <!-- Actions -->
 <div class="action-card">
-    <h5>➕ Agregar otra cuenta</h5>
+    <h5>Agregar otra cuenta</h5>
     <p class="text-muted" style="margin-bottom: 0;">Puedes conectar múltiples cuentas de Gmail y buscar en todas ellas</p>
     <a href="{{ url_for('auth.connect') }}" class="btn btn-add-account mt-3">
         Conectar otra cuenta de Gmail

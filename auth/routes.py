@@ -74,7 +74,7 @@ def index():
 
 @auth_bp.route("/connect")
 def connect():
-    """Start OAuth flow."""
+    """Show Gmail connection page."""
     try:
         flow = make_flow()
         auth_url, state = flow.authorization_url(
@@ -87,7 +87,7 @@ def connect():
         # is independent and doesn't share Flask session state.
         from auth.memory_store import store_oauth_state
         store_oauth_state(state)
-        return redirect(auth_url)
+        return render_template("connect.html", auth_url=auth_url)
     except ValueError as e:
         return render_template("error.html", message=str(e)), 500
     except Exception as e:
