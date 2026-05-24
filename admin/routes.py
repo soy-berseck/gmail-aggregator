@@ -226,6 +226,8 @@ def search():
         total=total,
         per_page=per_page,
         total_pages=total_pages,
+        max=max,
+        min=min,
     )
 
 
