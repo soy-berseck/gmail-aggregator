@@ -20,10 +20,8 @@ class Config:
     # Use /tmp for Vercel (read-only filesystem), otherwise use local credentials.json
     GOOGLE_CLIENT_SECRETS_FILE = "/tmp/credentials.json" if VERCEL_URL else "credentials.json"
     SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-    if VERCEL_URL:
-        OAUTH_REDIRECT_URI = f"https://{VERCEL_URL}/oauth2callback"
-    else:
-        OAUTH_REDIRECT_URI = os.environ.get("OAUTH_REDIRECT_URI", "http://localhost:5000/oauth2callback")
+    # Use fixed URLs for consistency across all Vercel deployments
+    OAUTH_REDIRECT_URI = os.environ.get("OAUTH_REDIRECT_URI", "https://gmail-aggregator.vercel.app/oauth2callback")
 
     # Token encryption
     FERNET_KEY = os.environ.get("FERNET_KEY")
