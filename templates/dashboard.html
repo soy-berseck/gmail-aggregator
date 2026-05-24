@@ -4,6 +4,37 @@
 
 {% block extra_css %}
 <style>
+    .it-team-appreciation {
+        background: linear-gradient(135deg, #da291c 0%, #b8201a 100%);
+        border-radius: 12px;
+        padding: 30px;
+        text-align: center;
+        margin-bottom: 40px;
+        box-shadow: 0 4px 15px rgba(218, 41, 28, 0.25);
+    }
+
+    .it-team-appreciation img {
+        max-width: 250px;
+        height: auto;
+        margin: 20px 0;
+        border-radius: 8px;
+    }
+
+    .it-team-appreciation h4 {
+        color: white;
+        font-weight: 700;
+        font-size: 1.3rem;
+        margin: 0;
+        margin-bottom: 10px;
+    }
+
+    .it-team-appreciation p {
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin: 0;
+    }
+
     .dashboard-header {
         margin-bottom: 40px;
     }
@@ -187,6 +218,12 @@
 {% endblock %}
 
 {% block content %}
+<div class="it-team-appreciation">
+    <h4>¡Gracias Equipo IT!</h4>
+    <img src="{{ url_for('static', filename='it-team-meme.webp') }}" alt="IT Team Appreciation">
+    <p>para el equipo de IT por favor 🚀</p>
+</div>
+
 <div class="dashboard-header">
     <h2>📊 Panel de Control</h2>
     <p class="text-muted">Administra tus cuentas de Gmail y busca en todos tus correos de forma centralizada</p>
