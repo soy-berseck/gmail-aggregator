@@ -16,9 +16,10 @@ class Config:
     SESSION_PERMANENT = False
 
     # Google OAuth
-    GOOGLE_CLIENT_SECRETS_FILE = "credentials.json"
-    SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
     VERCEL_URL = os.environ.get("VERCEL_URL")
+    # Use /tmp for Vercel (read-only filesystem), otherwise use local credentials.json
+    GOOGLE_CLIENT_SECRETS_FILE = "/tmp/credentials.json" if VERCEL_URL else "credentials.json"
+    SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
     if VERCEL_URL:
         OAUTH_REDIRECT_URI = f"https://{VERCEL_URL}/oauth2callback"
     else:
